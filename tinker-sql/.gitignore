@@ -1,0 +1,11 @@
+**/*.pyc
+*.out
+results/
+logs/
+**/__pycache__
+results/
+logs/
+.env
+.env.*
+dumps/
+databases/

@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.gemini/
+
+# Secrets
+.env
+!.env.example
+!.env.template
+!.env.llm_judge
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SLURM logs
+slurm-*.out
+
+# Model weights
+*.pt
+*.bin
+*.safetensors
+
+# WandB
+wandb/
+
+# Hydra
+outputs/
+
+# Logs
+*.log
+
+# Experiment outputs
+results/
+logs/
+databases/
+dumps/
