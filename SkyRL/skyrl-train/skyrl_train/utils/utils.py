@@ -442,6 +442,14 @@ def initialize_ray(cfg: DictConfig):
     }
     if os.environ.get("SKYRL_RAY_TEMP_DIR"):
         ray_init_kwargs["_temp_dir"] = os.environ["SKYRL_RAY_TEMP_DIR"]
+    # NOTE: ray detects node_ip_address by opening a socket toward an external host and reading
+    # back the local address (see services.node_ip_address_from_perspective), which yields the
+    # node's routable interface. On clusters that firewall connections to a node's own public IP,
+    # the raylet then cannot reach its own runtime env agent and exits with
+    # "Runtime Env Agent timed out ... Connection refused". These runs are single node, so
+    # `SKYRL_RAY_NODE_IP=127.0.0.1` sidesteps the network entirely.
+    if os.environ.get("SKYRL_RAY_NODE_IP"):
+        ray_init_kwargs["_node_ip_address"] = os.environ["SKYRL_RAY_NODE_IP"]
     ray.init(**ray_init_kwargs)
 
     # create the named ray actors for the registries to make available to all workers
