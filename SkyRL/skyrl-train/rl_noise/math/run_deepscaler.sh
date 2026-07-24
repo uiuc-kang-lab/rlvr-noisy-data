@@ -20,6 +20,9 @@ while [[ "$1" == --* ]]; do
         --model=*)
             MODEL_NAME="${1#*=}" 
             ;;
+        --num_gpus=*)
+            NUM_GPUS="${1#*=}"
+            ;;
         --base_dir=*)
             BASE_DIR=${1#*=} 
             ;;

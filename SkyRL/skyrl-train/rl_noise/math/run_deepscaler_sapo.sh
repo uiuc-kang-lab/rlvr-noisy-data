@@ -18,13 +18,16 @@ while [[ "$1" == --* ]]; do
         --model=*)
             MODEL_NAME="${1#*=}" 
             ;;
+        --num_gpus=*)
+            NUM_GPUS="${1#*=}"
+            ;;
         --base_dir=*)
             BASE_DIR=${1#*=} 
             ;;
         --run_name=*)
             RUN_NAME="${1#*=}" 
             ;;
-        --debug=*)
+        --debug)
             DEBUG="true"
             ;;
         --train_data=*)
