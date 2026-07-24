@@ -1,0 +1,73 @@
+0. System dep (this one bit us — hard failure without it)
+
+sudo apt-get update && sudo apt-get install -y libnuma1
+
+1. Repo + env
+
+git clone <your-remote> rlvr-noisy-data && cd rlvr-noisy-data
+git checkout noise-25pct-runs-and-pgfc-forward-correction
+cd SkyRL/skyrl-train && uv sync --extra vllm      # ~20GB, python 3.12
+
+2. Environment
+
+export BASE_DIR=/data/rl_noise                    # needs ~300GB for 7B ckpts
+export WANDB_API_KEY=<key>                        # validate_cfg hard-asserts this
+export HF_HOME=/data/hf                           # optional
+export SKYRL_RAY_TEMP_DIR=$BASE_DIR/tmp           # set if /tmp is small
+export SKYRL_RAY_NUM_CPUS=32
+
+3. Training data at 25% noise
+
+mkdir -p $BASE_DIR/data/deepscaler
+cd ../../data_curation/math
+UV="uv run --no-project --python 3.12 --with datasets --with pandas python"
+
+$UV json_to_parquet.py --mode clean --output $BASE_DIR/data/deepscaler/deepscaler_train_clean.parquet
+$UV json_to_parquet.py --mode noisy --output $BASE_DIR/data/deepscaler/deepscaler_train_with_wrong_answers.parquet
+$UV adjust_noise_rate.py 0.25 \
+--clean_parquet $BASE_DIR/data/deepscaler/deepscaler_train_clean.parquet \
+--noisy_parquet $BASE_DIR/data/deepscaler/deepscaler_train_with_wrong_answers.parquet \
+--output $BASE_DIR/data/deepscaler/deepscaler_train_pr-noise-0.25.parquet
+
+Expect New wrong answer rate: 3192/12769=0.2500. --no-project matters — without it uv rewrites the committed root uv.lock.
+
+4. Eval data (mandatory — the AMC23 step is not optional)
+
+curl -L -o $BASE_DIR/data/deepscaler/amc2023.jsonl \
+https://raw.githubusercontent.com/QwenLM/Qwen2.5-Math/main/evaluation/data/amc23/test.jsonl
+$UV test_dataset.py --output_dir $BASE_DIR/data/deepscaler
+
+test_dataset.py silently skips AMC23 if the jsonl is absent (returns None, continue), but the run scripts hardcode all six val paths — so you'd get a dataset-load failure at startup instead of a
+clear error. Confirm all six *_test.parquet exist before launching.
+
+5. Smoke check on the new box (~3 min, uses 1 GPU)
+
+cd ../../SkyRL/skyrl-train
+bash rl_noise/math/run_smoke_1gpu.sh --algo=grpo --base_dir=$BASE_DIR
+
+6. The six runs
+
+NUM_GPUS already defaults to 4, so no --num_gpus needed.
+
+D=deepscaler_train_pr-noise-0.25.parquet
+M=Qwen/Qwen2.5-Math-7B
+R="--model=$M --base_dir=$BASE_DIR --train_data=$D"
+
+bash rl_noise/math/run_deepscaler.sh        $R --run_name=grpo-0.25
+bash rl_noise/math/run_deepscaler_pgfc.sh   $R --run_name=pgfc-0.25 --pgfc_noise_rate=0.25
+bash rl_noise/math/run_deepscaler_drgrpo.sh $R --run_name=drgrpo-0.25
+bash rl_noise/math/run_deepscaler_sapo.sh   $R --run_name=sapo-0.25
+bash rl_noise/math/run_deepscaler_dapo.sh   $R --run_name=dapo-0.25
+bash rl_noise/math/run_deepscaler_tis.sh    $R --run_name=tis-0.25
+
+Run these one at a time, not concurrently — colocate_all=true means each claims all 4 GPUs. So one 4×H100 box gives you one algorithm at a time; six boxes to parallelize. resume_mode=latest with
+per-run_name ckpt paths means a killed run resumes where it stopped.
+
+Two corrections to what I said earlier
+
+Use run_deepscaler_pgfc.sh, never run_deepscaler.sh --pgfc_noise_rate=. Both accept that flag, but on the base script it still routes to environment.skyrl_gym.math_hard.noise_rate — the inert
+reward-shift path. It won't error, it'll just silently reproduce GRPO. The dedicated script routes to pgfc_fn_rate and pins the env rate to 0.
+
+Don't align the epoch counts. I told you to earlier; that was wrong. GRPO/Dr.GRPO/SAPO/PGFC use 5 epochs, TIS 50, DAPO 100 — and at 12,769 rows / batch 64 = 199 steps/epoch, 5 epochs is already
+~997 steps against a paper x-axis of ~600. DAPO and TIS need far more epochs to reach the same step count because dynamic_sampling.type=filter discards whole batches. The differing counts are
+deliberate. Compare on training steps, as the paper's figures do, and leave epochs alone.
