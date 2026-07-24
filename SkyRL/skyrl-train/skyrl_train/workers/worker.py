@@ -138,13 +138,23 @@ class DistributedTorchRayActor:
 
         from ctypes.util import find_library
 
+        # NUMA affinity is a performance optimization. If libnuma is not installed,
+        # `find_library` returns None and `CDLL(None)` would load the main program instead,
+        # failing later with a confusing `undefined symbol: numa_parse_nodestring`. Skip
+        # instead of taking down the worker (install `libnuma1` to enable it).
+        libnuma_path = find_library("numa")
+        if libnuma_path is None:
+            logger.warning("libnuma not found, skipping NUMA affinity setup. Install `libnuma1` to enable it.")
+            _SET_AFFINITY = True
+            return
+
         class bitmask_t(Structure):
             _fields_ = [
                 ("size", c_ulong),
                 ("maskp", POINTER(c_ulong)),
             ]
 
-        LIBNUMA = CDLL(find_library("numa"))
+        LIBNUMA = CDLL(libnuma_path)
         LIBNUMA.numa_parse_nodestring.argtypes = [c_char_p]
         LIBNUMA.numa_parse_nodestring.restype = POINTER(bitmask_t)
         LIBNUMA.numa_run_on_node_mask.argtypes = [POINTER(bitmask_t)]

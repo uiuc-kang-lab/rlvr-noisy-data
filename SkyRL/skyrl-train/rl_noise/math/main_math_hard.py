@@ -15,7 +15,7 @@ def skyrl_entrypoint(cfg: DictConfig):
     # Register the multiply environment inside the entrypoint task (no need to modify the skyrl-gym package).
     register(
         id="math_hard",
-        entry_point="rl_noise.math_hard.env:MathEnv",
+        entry_point="rl_noise.math.env:MathEnv",
     )
 
     # make sure that the training loop is not run on the head node.

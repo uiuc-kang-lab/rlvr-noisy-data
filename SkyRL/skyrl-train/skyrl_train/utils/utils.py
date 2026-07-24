@@ -433,7 +433,16 @@ def initialize_ray(cfg: DictConfig):
     print(f"Excluding files from ray runtime env: {excludes}")
 
     env_vars = prepare_runtime_environment(cfg)
-    ray.init(runtime_env={"env_vars": env_vars, "excludes": excludes}, address="local", _temp_dir="/data/yuxuan_zhu/tmp", num_cpus=16)
+    # NOTE: the ray session temp dir and cpu count are cluster specific. Override with
+    # `SKYRL_RAY_TEMP_DIR` / `SKYRL_RAY_NUM_CPUS` instead of hardcoding a scratch path here.
+    ray_init_kwargs = {
+        "runtime_env": {"env_vars": env_vars, "excludes": excludes},
+        "address": "local",
+        "num_cpus": int(os.environ.get("SKYRL_RAY_NUM_CPUS", "16")),
+    }
+    if os.environ.get("SKYRL_RAY_TEMP_DIR"):
+        ray_init_kwargs["_temp_dir"] = os.environ["SKYRL_RAY_TEMP_DIR"]
+    ray.init(**ray_init_kwargs)
 
     # create the named ray actors for the registries to make available to all workers
     sync_registries()

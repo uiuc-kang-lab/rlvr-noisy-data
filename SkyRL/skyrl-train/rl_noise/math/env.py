@@ -6,7 +6,7 @@ validate answers when necessary.
 
 from typing import Any, Dict
 from skyrl_gym.envs.base_text_env import BaseTextEnv, BaseTextEnvStepOutput
-from rl_noise.math_hard.utils import extract_answer, grade_answer_mathd, grade_answer_sympy
+from rl_noise.math.utils import extract_answer, grade_answer_mathd, grade_answer_sympy
 
 THOUGHT_DELIMITER_START = "<think>"
 THOUGHT_DELIMITER_END = "</think>"

@@ -29,7 +29,6 @@ def compute_reinforce_policy_loss(
     ratio = (log_probs - old_log_probs).exp()
     clipped_ratio = torch.sigmoid(tau * (ratio - 1)) * 4.0 / tau
     sapo_objective = clipped_ratio * advantages
-    print(clipped_ratio)
     loss = -sapo_objective
     loss = reduce_loss(loss, loss_mask, config.loss_reduction, config.max_seq_len)
 
@@ -46,7 +45,7 @@ def skyrl_entrypoint(cfg: DictConfig):
     # Register the multiply environment inside the entrypoint task (no need to modify the skyrl-gym package).
     register(
         id="math_hard",
-        entry_point="rl_noise.math_hard.env:MathEnv",
+        entry_point="rl_noise.math.env:MathEnv",
     )
     
     exp = BasePPOExp(cfg)
